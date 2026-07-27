@@ -1,12 +1,12 @@
 <!DOCTYPE html><html lang="fr"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Koulway</title>
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" id="mf" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <meta name="theme-color" content="#0E6E78">
 <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F4F2;margin:0;padding:56px 22px;text-align:center;color:#1A1A1A}
-img.lg{width:96px;height:96px;border-radius:22%}h1{font-size:19px;margin:14px 0 6px}p{font-size:13.5px;color:#555;line-height:1.55;max-width:340px;margin:8px auto}
+img.lg{width:96px;height:96px}h1{font-size:19px;margin:14px 0 6px}p{font-size:13.5px;color:#555;line-height:1.55;max-width:340px;margin:8px auto}
 .etape{background:#fff;border-radius:12px;padding:14px;margin:10px auto;max-width:340px;text-align:left;font-size:13.5px;box-shadow:0 1px 2px rgba(0,0,0,.06)}</style>
 </head><body>
 <img class="lg" src="icon-192.png" alt="Koulway">
@@ -18,16 +18,31 @@ img.lg{width:96px;height:96px;border-radius:22%}h1{font-size:19px;margin:14px 0 
 </div>
 <p id="chg">Ouverture du hub…</p>
 <script>
-// La cible (URL du hub) n'est JAMAIS écrite dans cette page publique : elle
-// arrive par le #fragment depuis le bouton « Préparer l'icône » du hub, puis
-// vit dans le localStorage de CE navigateur.
+// La cible (URL du hub) n'est JAMAIS écrite dans ce dépôt public. Elle
+// arrive du bouton « Préparer l'icône » du hub (#fragment), puis est
+// EMBARQUÉE dans l'icône elle-même : en mode installation, un manifest
+// dynamique (data:) fixe start_url = go.html?go=<cible> — le raccourci
+// n'a donc besoin d'aucun stockage pour retrouver le hub. localStorage
+// reste un simple secours.
 (function(){
-  var h=location.hash?decodeURIComponent(location.hash.slice(1)):'';
-  if(h&&/^https:\/\/script\.google\.com\//.test(h)){try{localStorage.setItem('KW_GO',h);}catch(e){}}
-  var cible='';try{cible=localStorage.getItem('KW_GO')||'';}catch(e){}
+  var OK=/^https:\/\/script\.google\.com\//;
+  function param(n){var m=location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));return m?decodeURIComponent(m[1]):'';}
+  var cible=param('go');
+  if(!OK.test(cible)){cible=location.hash?decodeURIComponent(location.hash.slice(1)):'';}
+  if(!OK.test(cible)){try{cible=localStorage.getItem('KW_GO')||'';}catch(e){}}
+  if(!OK.test(cible)){cible='';}
+  if(cible){try{localStorage.setItem('KW_GO',cible);}catch(e){}}
   var setup=/[?&]setup=1/.test(location.search);
   var standalone=(navigator.standalone===true)||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
   if(setup&&!standalone){
+    if(cible){
+      var mfObj={name:'Koulway',short_name:'Koulway',display:'standalone',background_color:'#F5F4F2',theme_color:'#0E6E78',
+        start_url:location.origin+location.pathname+'?go='+encodeURIComponent(cible),
+        icons:[{src:location.origin+'/koulway-assets/icon-192.png',sizes:'192x192',type:'image/png'},
+               {src:location.origin+'/koulway-assets/icon-512.png',sizes:'512x512',type:'image/png'},
+               {src:location.origin+'/koulway-assets/icon-512-maskable.png',sizes:'512x512',type:'image/png',purpose:'maskable'}]};
+      document.getElementById('mf').setAttribute('href','data:application/manifest+json,'+encodeURIComponent(JSON.stringify(mfObj)));
+    }
     document.getElementById('chg').style.display='none';
     var ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
     document.getElementById('etapes').innerHTML=ios
