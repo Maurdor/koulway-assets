@@ -16,9 +16,10 @@ img.lg{width:96px;height:96px}h1{font-size:19px;margin:14px 0 6px}p{font-size:13
 <img class="lg" src="icon-192.png?v=3" alt="Koulway">
 <h1>Koulway</h1>
 <div id="aide" style="display:none">
-  <p><b>Ajoute l'app à ton écran d'accueil — depuis CETTE page (celle du grand K), pas depuis le hub :</b></p>
+  <p><b>Tu es au bon endroit — ajoute l'app à ton écran d'accueil :</b></p>
   <div class="etape" id="etapes"></div>
   <p>Ensuite, ouvre toujours le hub depuis cette icône.</p>
+  <p><a id="retour" href="#" style="display:none;color:#0E6E78;font-weight:700;text-decoration:none">&larr; Revenir au hub</a></p>
 </div>
 <p id="chg">Ouverture du hub…</p>
 <script>
@@ -54,6 +55,7 @@ img.lg{width:96px;height:96px}h1{font-size:19px;margin:14px 0 6px}p{font-size:13
       ?'1. Appuie sur <b>Partager</b> &#x2934;<br>2. Choisis <b>&laquo; Sur l’écran d’accueil &raquo;</b><br>3. Confirme &laquo; Ajouter &raquo; — le logo K apparaît.'
       :'1. Ouvre le menu <b>&#8942;</b> de Chrome<br>2. Choisis <b>&laquo; Ajouter à l’écran d’accueil &raquo;</b><br>3. Confirme — le logo K apparaît.';
     document.getElementById('aide').style.display='block';
+    if(cible){var rt=document.getElementById('retour');rt.href=cible;rt.style.display='inline-block';}
     return;
   }
   if(cible){location.replace(cible);return;}
