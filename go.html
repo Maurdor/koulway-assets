@@ -54,10 +54,31 @@ a.lien{display:inline-block;margin-top:12px;color:var(--teal);font-weight:600;te
   function param(n){var m=location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));return m?decodeURIComponent(m[1]):'';}
   var cible=param('go');
   if(!OK.test(cible)){cible=location.hash?decodeURIComponent(location.hash.slice(1)):'';}
+  // Reparation one-shot (visa R10 02/08) : un secours memorise qui n'est pas
+  // une base de hub (ancienne version, ou cible profonde) est SUPPRIME —
+  // sinon un appareil deja empoisonne ne guerit jamais.
+  try{var sK=localStorage.getItem('KW_GO');if(sK&&!/[?&]hub=1/.test(sK))localStorage.removeItem('KW_GO');}catch(e){}
   if(!OK.test(cible)){try{cible=localStorage.getItem('KW_GO')||'';}catch(e){}}
   if(!OK.test(cible)){cible='';}
-  if(cible){try{localStorage.setItem('KW_GO',cible);}catch(e){}}
-  var start=location.origin+location.pathname+(cible?'?go='+encodeURIComponent(cible):'');
+  // Garde (story nav-embarquee 02/08, durcie par le visa) : le secours de boot
+  // est une BASE de hub NORMALISEE — on reconstruit origine+chemin+'?hub=1'
+  // (+ '&mi=' si presente) au lieu de memoriser la query recue.
+  // PORTEE EXACTE (contre-visa 02/08, ne pas embellir) : ml= (lien magique),
+  // k= (jeton pilote) et les cibles profondes ne peuvent plus etre stockes
+  // ici. mi= (cle d'icone) l'est DELIBEREMENT : c'est le facteur
+  // d'authentification de l'app epinglee, il doit survivre au lancement.
+  // Consequence assumee : mi= voyage en query vers cet hote tiers a chaque
+  // lancement — DETTE OUVERTE, pre-existante, chantier separe (le faire
+  // voyager par le fragment cote 60_Hub.js et sortir mi du start_url).
+  if(cible&&/[?&]hub=1/.test(cible)){try{
+    var mi=cible.match(/[?&]mi=([^&]+)/);
+    localStorage.setItem('KW_GO',cible.split('?')[0]+'?hub=1'+(mi?'&mi='+mi[1]:''));
+  }catch(e){}}
+  // La cible de BOOT du manifest n'est jamais une page profonde : le start_url
+  // repart du secours normalise, pas de la cible de navigation en cours.
+  var boot='';try{boot=localStorage.getItem('KW_GO')||'';}catch(e){}
+  if(!OK.test(boot)){boot=/[?&]hub=1/.test(cible)?cible:'';}
+  var start=location.origin+location.pathname+(boot?'?go='+encodeURIComponent(boot):'');
   var mfObj={name:'Koulway',short_name:'Koulway',display:'standalone',background_color:'#F5F4F2',theme_color:'#0E6E78',
     start_url:start,
     icons:[{src:location.origin+'/koulway-assets/icon-192.png?v=4',sizes:'192x192',type:'image/png'},
@@ -88,9 +109,29 @@ a.lien{display:inline-block;margin-top:12px;color:var(--teal);font-weight:600;te
     function pret(){if(fini)return;fini=true;f.style.display='block';var sp=document.getElementById('splash');if(sp)sp.style.display='none';}
     window.addEventListener('message',function(ev){if(ev&&ev.data==='KW_READY')pret();});
     f.addEventListener('load',function(){setTimeout(pret,1200);});
+    // Visa R10 (02/08) : ce repli proposait un lien NU vers script.google.com.
+    // En app epinglee, le suivre sort de la portee et rend exactement la
+    // capture du PO (barres du navigateur). On reste dans la coquille :
+    // reveler l'iframe (le chargement continue dedans) + un vrai bouton
+    // « Reessayer » qui recharge la cible SANS quitter le plein ecran.
     setTimeout(function(){if(fini)return;var o=document.getElementById('ouverture');
-      o.innerHTML='<p class="sub">La connexion tarde…</p><a class="btn" href="'+u.replace(/"/g,'&quot;')+'">Ouvrir quand même</a>';},15000);
+      o.innerHTML='<p class="sub">La connexion tarde&hellip;</p>';
+      var b=document.createElement('a');b.className='btn';b.href='#';
+      b.textContent='Réessayer';
+      b.onclick=function(){o.innerHTML='<div class="spin"></div><p class="sub">Nouvelle tentative&hellip;</p>';f.src=u;return false;};
+      o.appendChild(b);},15000); // PAS de pret() ici : il masque #splash, donc le bouton qu'on vient d'ajouter (contre-visa 02/08, mesure : bouton present mais rect 0x0)
     f.src=u;
+    // Contre-visa 02/08 — BOMBE MESUREE : a partir du 2e saut, l'URL cible ne
+    // differe de l'URL courante que par le FRAGMENT. Le navigateur fait une
+    // navigation same-document : il ne recharge RIEN et cette IIFE n'est pas
+    // rejouee. Sans cet ecouteur, l'app epinglee se fige des la 2e navigation
+    // (retour au hub, choix de resto, espace pilote) — plus aucune sortie que
+    // tuer l'app. Ici on repointe l'iframe : pas de rechargement du tout, donc
+    // MOINS couteux que l'ancien comportement (R12).
+    window.addEventListener('hashchange',function(){
+      var c=location.hash?decodeURIComponent(location.hash.slice(1)):'';
+      if(OK.test(c)&&c!==u){u=c;f.src=c;}
+    });
     if(window.visualViewport){var hv=visualViewport.height;visualViewport.addEventListener('resize',function(){if(visualViewport.height>=hv-2)window.scrollTo(0,0);});}
   }
   if(cible&&standalone){lancerEmbarque(cible);return;}
