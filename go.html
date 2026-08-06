@@ -73,12 +73,37 @@ a.lien{display:inline-block;margin-top:12px;color:var(--teal);font-weight:600;te
   // voyager par le fragment cote 60_Hub.js et sortir mi du start_url).
   if(cible&&/[?&]hub=1/.test(cible)){try{
     var mi=cible.match(/[?&]mi=([^&]+)/);
+    // Correctif 06/08 : une cible hub SANS mi ne doit pas effacer la clé
+    // d'icône déjà mémorisée (elle est LE facteur d'auth de l'app épinglée).
+    // VISA 06/08, bloquant B1 : report UNIQUEMENT si la cible est le MÊME
+    // déploiement que celui qui a émis la clé — la garde OK accepte tout
+    // script.google.com, donc un lien forgé vers le web app d'un tiers
+    // aurait emporté la clé (session 180 j, rôle direction inclus).
+    if(!mi){var sAv=localStorage.getItem('KW_GO')||'';
+      if(sAv.split('?')[0]===cible.split('?')[0])mi=sAv.match(/[?&]mi=([^&]+)/);}
     localStorage.setItem('KW_GO',cible.split('?')[0]+'?hub=1'+(mi?'&mi='+mi[1]:''));
   }catch(e){}}
   // La cible de BOOT du manifest n'est jamais une page profonde : le start_url
   // repart du secours normalise, pas de la cible de navigation en cours.
   var boot='';try{boot=localStorage.getItem('KW_GO')||'';}catch(e){}
   if(!OK.test(boot)){boot=/[?&]hub=1/.test(cible)?cible:'';}
+  // Correctif 06/08 (bug PO « Commander → précédent → email ») : en app
+  // épinglée, le stockage local de l'iframe GAS n'est PAS fiable — la clé
+  // d'icône mi= est LE facteur d'authentification. Toute cible HUB (?hub=1)
+  // sans mi= récupère celle du secours KW_GO : le « ← Retour au hub » du
+  // formulaire, « Ouvrir mon espace », etc. ne déconnectent plus. PORTÉE
+  // EXACTE : jamais sur une cible profonde (?site=, pilote…), jamais
+  // d'invention de clé (KW_GO sans mi = comportement inchangé).
+  function avecMi(u){
+    if(!/[?&]hub=1/.test(u)||/[?&]mi=/.test(u))return u;
+    var s='';try{s=localStorage.getItem('KW_GO')||'';}catch(e){}
+    // VISA 06/08 (B1) : jamais vers un AUTRE déploiement que celui qui a
+    // émis la clé, même sous script.google.com.
+    if(s.split('?')[0]!==u.split('?')[0])return u;
+    var m=s.match(/[?&]mi=([^&]+)/);
+    return m?u+'&mi='+m[1]:u;
+  }
+  window.avecMi=avecMi; // exposée pour le banc (comme lancerEmbarque)
   var start=location.origin+location.pathname+(boot?'?go='+encodeURIComponent(boot):'');
   var mfObj={name:'Koulway',short_name:'Koulway',display:'standalone',background_color:'#F5F4F2',theme_color:'#0E6E78',
     start_url:start,
@@ -166,11 +191,12 @@ a.lien{display:inline-block;margin-top:12px;color:var(--teal);font-weight:600;te
     // MOINS couteux que l'ancien comportement (R12).
     window.addEventListener('hashchange',function(){
       var c=location.hash?decodeURIComponent(location.hash.slice(1)):'';
+      c=avecMi(c); // correctif 06/08 : retour hub same-document garde la clé
       if(OK.test(c)&&c!==u){u=c;attendre(c);f.src=c;}
     });
     if(window.visualViewport){var hv=visualViewport.height;visualViewport.addEventListener('resize',function(){if(visualViewport.height>=hv-2)window.scrollTo(0,0);});}
   }
-  if(cible&&standalone){lancerEmbarque(cible);return;}
+  if(cible&&standalone){lancerEmbarque(avecMi(cible));return;}
   if(cible){document.getElementById('ouverture').style.display='block';location.replace(cible);return;}
   document.getElementById('chg').style.display='block';
 })();
